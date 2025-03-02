@@ -166,38 +166,49 @@
         }
 
 
-    function exportPDF() {
-    const { jsPDF } = window.jspdf;
-    let doc = new jsPDF();
-    
-    // Set margin agar teks tidak terlalu rapat dengan tepi
-    const margin = 10;
-    let y = margin + 10; // Posisi vertikal awal
-
-    // Menambahkan judul
-    doc.text("Laporan Hafalan Al-Qur'an TPA", margin, y);
-    y += 10;  // Menambahkan jarak setelah judul
-
-    // Menambahkan konten laporan
-    dataHafalan.forEach(item => {
-        doc.text(`${item.nama} - ${item.tanggal}`, margin, y);
-        y += 10;  // Menambah jarak setelah nama santri dan tanggal
-
-        item.hafalan.forEach(h => {
-            doc.text(`  ${h.surah} - ${h.tingkat}`, margin, y);
-            y += 10;  // Menambah jarak untuk tiap surah
-        });
-
-        y += 10; // Memberikan jarak setelah setiap santri
-        if (y > doc.internal.pageSize.height - margin) {
-            doc.addPage(); // Jika halaman penuh, tambahkan halaman baru
-            y = margin + 10; // Reset posisi y untuk halaman baru
+        function exportPDF() {
+            const { jsPDF } = window.jspdf;
+            let doc = new jsPDF();
+            
+            // Set margin agar teks tidak terlalu rapat dengan tepi
+            const margin = 10;
+            let y = margin + 10; // Posisi vertikal awal
+        
+            // Menambahkan judul
+            doc.text("Laporan Hafalan Al-Qur'an TPA", margin, y);
+            y += 10;  // Menambahkan jarak setelah judul
+        
+            // Menambahkan konten laporan
+            dataHafalan.forEach(item => {
+                // Cek jika ada cukup ruang untuk menambahkan nama dan tanggal
+                if (y + 10 > doc.internal.pageSize.height - margin) {
+                    doc.addPage();  // Tambahkan halaman baru jika ruang tidak cukup
+                    y = margin + 10; // Reset posisi y untuk halaman baru
+                }
+                doc.text(`${item.nama} - ${item.tanggal}`, margin, y);
+                y += 10;  // Menambah jarak setelah nama santri dan tanggal
+        
+                item.hafalan.forEach(h => {
+                    // Cek jika ada cukup ruang untuk menambahkan surah dan tingkat
+                    if (y + 10 > doc.internal.pageSize.height - margin) {
+                        doc.addPage();  // Tambahkan halaman baru jika ruang tidak cukup
+                        y = margin + 10; // Reset posisi y untuk halaman baru
+                    }
+                    doc.text(`  ${h.surah} - ${h.tingkat}`, margin, y);
+                    y += 10;  // Menambah jarak untuk tiap surah
+                });
+        
+                y += 10; // Memberikan jarak setelah setiap santri
+                // Cek jika ada cukup ruang setelah setiap santri untuk melanjutkan
+                if (y > doc.internal.pageSize.height - margin) {
+                    doc.addPage(); // Jika halaman penuh, tambahkan halaman baru
+                    y = margin + 10; // Reset posisi y untuk halaman baru
+                }
+            });
+        
+            // Menyimpan PDF dengan nama file
+            doc.save("Laporan_Hafalan.pdf");
         }
-    });
-
-    // Menyimpan PDF dengan nama file
-    doc.save("Laporan_Hafalan.pdf");
-}
 
         window.onload = function () {
             Swal.fire({
