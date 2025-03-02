@@ -5,7 +5,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hafalan Al-Qur'an TPA</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="icon" type="image/png" sizes="16x16" href="asset/favicon-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="asset/favicon-32x32.png">
     <link rel="shortcut icon" href="asset/favicon.ico">
@@ -19,8 +18,10 @@
 
     <!-- Web App Manifest (Opsional, untuk PWA) -->
     <link rel="manifest" href="asset/site.webmanifest">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 
 <body class="container mt-4">
@@ -39,39 +40,30 @@
         <button class="btn btn-primary mt-2 w-100" onclick="tambahHafalan()">Simpan</button>
     </div>
 
+    <h3>Filter Rekap Hafalan</h3>
+    <input type="date" id="filterTanggal" class="form-control mb-2" onchange="tampilkanHafalan()">
+
     <h3>Rekap Hafalan</h3>
     <table class="table table-striped table-bordered">
         <thead>
             <tr>
                 <th>Nama Santri</th>
-                <th>Surah</th>
-                <th>Tingkat</th>
+                <th>Surah & Tingkat Hafalan</th>
                 <th>Tanggal</th>
                 <th>Aksi</th>
             </tr>
         </thead>
         <tbody id="rekapHafalan"></tbody>
     </table>
+    <button class="btn btn-success" onclick="exportPDF()">Unduh Laporan PDF</button>
 
     <h3>Grafik Perkembangan</h3>
     <canvas id="grafikHafalan"></canvas>
 
     <script>
         let dataHafalan = JSON.parse(localStorage.getItem('hafalanQuran')) || [];
-        const surahList = [
-            "An-Naba'", "An-Nazi'at", "Abasa", "At-Takwir", "Al-Infitar", "Al-Mutaffifin",
-            "Al-Insyiqaq", "Al-Buruj", "At-Tariq", "Al-A'la", "Al-Ghashiyah", "Al-Fajr",
-            "Al-Balad", "Asy-Syams", "Al-Lail", "Ad-Duha", "Asy-Syarh", "At-Tin",
-            "Al-'Alaq", "Al-Qadr", "Al-Bayyinah", "Az-Zalzalah", "Al-'Adiyat", "Al-Qari'ah",
-            "At-Takatsur", "Al-'Asr", "Al-Humazah", "Al-Fil", "Quraisy", "Al-Ma'un",
-            "Al-Kausar", "Al-Kafirun", "An-Nasr", "Al-Lahab", "Al-Ikhlas", "Al-Falaq", "An-Nas",
-            "Al-Mulk", "Al-Qalam", "Al-Haqqah", "Al-Ma'arij", "Nuh", "Al-Jinn",
-            "Al-Muzzammil", "Al-Muddassir", "Al-Qiyamah", "Al-Insan", "Al-Mursalat",
-            "Al-Mujadilah", "Al-Hasyr", "Al-Mumtahanah", "As-Saff", "Al-Jumu'ah",
-            "Al-Munafiqun", "At-Taghabun", "At-Talaq", "At-Tahrim"
-        ];
+        const surahList = ["An-Naba'", "An-Nazi'at", "Abasa", "At-Takwir", "Al-Infitar", "Al-Mutaffifin"];
         let surahSelect = document.getElementById("surah");
-
         surahList.forEach(surah => {
             let option = document.createElement("option");
             option.value = surah;
@@ -83,29 +75,48 @@
             let nama = document.getElementById('namaSantri').value;
             let surah = document.getElementById('surah').value;
             let tingkat = document.getElementById('tingkatHafalan').value;
-            let tanggal = new Date().toLocaleDateString('id-ID');
+            let tanggal = new Date().toISOString().split('T')[0];
 
             if (nama && surah) {
-                dataHafalan.push({ nama, surah, tingkat, tanggal });
+                let santri = dataHafalan.find(item => item.nama === nama);
+                if (santri) {
+                    santri.hafalan.push({ surah, tingkat });
+                } else {
+                    dataHafalan.push({ nama, hafalan: [{ surah, tingkat }], tanggal });
+                }
                 localStorage.setItem('hafalanQuran', JSON.stringify(dataHafalan));
                 tampilkanHafalan();
                 updateGrafik();
             }
         }
-
         function tampilkanHafalan() {
             let rekap = document.getElementById('rekapHafalan');
+            let filterTanggal = document.getElementById('filterTanggal').value;
             rekap.innerHTML = '';
+
             dataHafalan.forEach((item, index) => {
-                rekap.innerHTML += `<tr>
-                    <td>${item.nama}</td>
-                    <td>${item.surah}</td>
-                    <td>${item.tingkat}</td>
-                    <td>${item.tanggal}</td>
-                    <td><button class='btn btn-danger' onclick='hapusHafalan(${index})'>Hapus</button></td>
-                </tr>`;
+                // Pastikan hafalan ada dan berupa array
+                if (!item.hafalan || !Array.isArray(item.hafalan)) {
+                    item.hafalan = []; // Set hafalan ke array kosong jika tidak ada
+                }
+
+                // Konversi tanggal menjadi format yyyy-mm-dd untuk perbandingan
+                let itemTanggal = item.tanggal.split('T')[0]; // Mengambil bagian tanggal saja (yyyy-mm-dd)
+
+                // Filter berdasarkan tanggal
+                if (!filterTanggal || itemTanggal === filterTanggal) {
+                    let hafalanList = item.hafalan.map(h => `${h.surah} (${h.tingkat})`).join('<br>');
+                    rekap.innerHTML += `<tr>
+                <td>${item.nama}</td>
+                <td>${hafalanList}</td>
+                <td>${item.tanggal}</td>
+                <td><button class='btn btn-danger' onclick='hapusHafalan(${index})'>Hapus</button></td>
+            </tr>`;
+                }
             });
         }
+
+
 
         function hapusHafalan(index) {
             dataHafalan.splice(index, 1);
@@ -117,9 +128,17 @@
         function updateGrafik() {
             let ctx = document.getElementById('grafikHafalan').getContext('2d');
             let counts = { "Belum Hafal": 0, "Masih Belajar": 0, "Sudah Lancar": 0 };
-            dataHafalan.forEach(item => { counts[item.tingkat]++; });
 
-            new Chart(ctx, {
+            dataHafalan.forEach(item => {
+                if (item.hafalan && Array.isArray(item.hafalan)) {
+                    item.hafalan.forEach(h => {
+                        counts[h.tingkat]++;
+                    });
+                }
+            });
+
+            if (window.grafikInstance) window.grafikInstance.destroy();
+            window.grafikInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: Object.keys(counts),
@@ -130,14 +149,32 @@
                         borderWidth: 1
                     }]
                 },
-                options: { responsive: true, plugins: { legend: { display: true } } }
+                options: { responsive: true }
             });
+        }
+
+
+        function exportPDF() {
+            const { jsPDF } = window.jspdf;
+            let doc = new jsPDF();
+            doc.text("Laporan Hafalan Al-Qur'an TPA", 10, 10);
+            let y = 20;
+            dataHafalan.forEach(item => {
+                doc.text(`${item.nama} - ${item.tanggal}`, 10, y);
+                item.hafalan.forEach(h => {
+                    doc.text(`  ${h.surah} - ${h.tingkat}`, 10, y + 10);
+                    y += 10;
+                });
+                y += 10;
+            });
+            doc.save("Laporan_Hafalan.pdf");
         }
 
         window.onload = function () {
             Swal.fire({
                 title: "Selamat Datang!",
-                text: "Selamat datang di Hafalan Al-Qur'an TPA!\n\nCatatan by [Rayhan]",
+                // text: "Catatan Hafalan Al-Qur'an TPA",
+                html: "<b>Selamat datang di Catatan Hafalan AL-Quran TPA! </b><br><br><small>Catatan by [Rayhan]</small>",
                 icon: "success",
                 confirmButtonText: "OK"
             });
